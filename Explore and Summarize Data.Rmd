@@ -1,0 +1,861 @@
+---
+title: Contribuições Financeiras para Campanhas Presidenciais por Estado(Califórnia)
+  por Fabricio Bento
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Explorando o dataset
+
+Este relatório explora o dataset de contribuições financeiras para campanha presidenciais por estado, o estado escolhido foi da Califórnia. O número de registros são de aproximadamente 1.300.000 contribuições.
+
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+install.packages('ggplot2')
+install.packages('GGally')
+install.packages('scales')
+install.packages('memisc')
+install.packages('RColorBrewer')
+install.packages('gridExtra')
+install.packages('dplyr')
+install.packages('mondate')
+install.packages('lubridate')
+install.packages('reshape2')
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(GGally)
+library(scales)
+library(memisc)
+library(RColorBrewer)
+library(gridExtra)
+library(dplyr)
+library(mondate)
+library(lubridate)
+library(reshape2)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#setwd('~/R')
+cols = c('cmte_id','cand_id','cand_nm','contbr_nm','contbr_city','contbr_st','contbr_zip','contbr_employer','contbr_occupation','contb_receipt_amt','contb_receipt_dt','receipt_desc','memo_cd','memo_text','form_tp','file_num','tran_id','election_tp', 'falha')
+data <- read.csv('P00000001-CA.csv', col.names = cols, header = F, skip = 1)
+ca <- data[, c(1:18)]
+```
+O número de linhas e de colunas:
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+dim(ca)
+```
+
+
+Visão compacta da estrutura do dataset:
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+str(ca)
+```
+
+
+Visão expandida da estrutura do dataset:
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+summary(ca)
+```
+
+
+As contribuições estão distribuídas em 25 candidatos. A candidata Clinton, Hillary Rodham possui 688524 representa aproximadamente 53% das contribuições. O candidato Sanders, Bernard possui 407164 contribuições representando aproximadamente 31% das contribuições.
+
+
+```{r fig.width=10, fig.height=5, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=cand_nm), data = ca) +
+  geom_histogram(stat = 'count') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_y_continuous(breaks = c(0, 100000, 200000, 300000, 400000, 500000, 600000, 690000))+
+  ggtitle('Distribuição das contribuições dos candidatos')+
+  xlab('Candidatos')+
+  ylab('Contribuições')
+```
+
+
+Para melhor compreender a distribuição das contribuições dos candidatos, o gráfico anterior mas usando escala de log.
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=cand_nm), data = ca) +
+  geom_histogram(stat = 'count') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_y_log10(breaks = c(10, 1000, 100000))+
+  ggtitle('Distribuição das contribuições dos candidatos (Escala de log)')+
+  xlab('Candidatos')+
+  ylab('Contribuições')
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+groups_cand_nm <- group_by(ca, cand_nm)
+ca.ca_by_cand_nm <- summarise(groups_cand_nm,
+           mean_contb_receipt_amt = mean(contb_receipt_amt),
+           median_contb_receipt_amt = median(contb_receipt_amt),
+           contb = sum(contb_receipt_amt),
+           n = n())
+ca.ca_by_cand_nm$por_contb <-(ca.ca_by_cand_nm$contb/sum(ca.ca_by_cand_nm$contb))*100
+ca.ca_by_cand_nm$por_n <- (ca.ca_by_cand_nm$n/sum(ca.ca_by_cand_nm$n))*100
+```
+
+
+Uma análise dos 5 candidatos com mais contribuições.
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=cand_nm, y= n/10), data = ca.ca_by_cand_nm %>% top_n(5, ca.ca_by_cand_nm$n)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Os 5 candidatos com mais contribuições')+
+  xlab('Candidatos')+
+  ylab('contribuições/1000')
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+groups_contbr_city <- group_by(ca, contbr_city)
+ca.ca_by_contbr_city <- summarise(groups_contbr_city,
+           mean_contb_receipt_amt = mean(contb_receipt_amt),
+           median_contb_receipt_amt = median(contb_receipt_amt),
+           total = sum(contb_receipt_amt),
+           n = n())
+```
+
+
+Continuando a exploração, o dataset permite a distribuições das contribuições por cidades, a registro de 2534 cidades, as 20 com maior número de contribuição.
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contbr_city, y= n), data = ca.ca_by_contbr_city %>% top_n(20, ca.ca_by_contbr_city$n)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('As 20 cidades com mais contribuições')+
+  xlab('Cidades')+
+  ylab('contribuições')
+```
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+groups_contbr_nm <- group_by(ca, contbr_nm)
+ca.ca_by_contbr_nm <- summarise(groups_contbr_nm,
+           mean_contb_receipt_amt = mean(contb_receipt_amt),
+           median_contb_receipt_amt = median(contb_receipt_amt),
+           total = sum(contb_receipt_amt),
+           n = n())
+```
+
+
+Há registro de 231294 pessoas que realizaram contribuições, As 5 pessoas com maior número de contribuições
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contbr_nm, y= n), data = ca.ca_by_contbr_nm %>% top_n(5, ca.ca_by_contbr_nm$n)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Os 5 que mais contribuíram')+
+  xlab('Doador')+
+  ylab('contribuições')
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+groups_contbr_occupation <- group_by(ca, contbr_occupation)
+ca.ca_by_contbr_occupation <- summarise(groups_contbr_occupation,
+           mean_contb_receipt_amt = mean(contb_receipt_amt),
+           median_contb_receipt_amt = median(contb_receipt_amt),
+           total = sum(contb_receipt_amt),
+           n = n())
+```
+
+
+Continuando a exploração, vamos para a tabela de profissão, ela possui o registro de 28622 profissões, no gráfico abaixo a distribuição das 20 profissões que mais contribuíram. Os RETIRED (APOSENTADOS) realizaram 260546 contribuições, aproximadamente 20% das contribuições do dataset. Logo em seguida vem NOT EMPLOYED (DESEMPREGADOS) com 115598 contribuições, aproximadamente 9% do dataset. 
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contbr_occupation, y= n), data = ca.ca_by_contbr_occupation %>% top_n(20, ca.ca_by_contbr_occupation$n)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_y_continuous(breaks= seq(0,250000,50000))+
+  ggtitle('As 20 profissões que mais contribuíram')+
+  xlab('Profissão')+
+  ylab('contribuições')
+```
+
+
+Analisando o valor das contribuições, o valor médio foi 116.2, 16313 está com um valor negativo de contribuição, 53 contribuições tem o valor 0. Para quais candidatos foram direcionadas as contribuições negativas? 
+
+
+```{r fig.width=10, fig.height=5, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contb_receipt_amt), data = ca) +
+  geom_histogram() +
+  ggtitle('Distribuição das contribuições por valor de contribuição')+
+  xlab('Valor')+
+  ylab('Contribuições')
+```
+```{r fig.width=10, fig.height=5, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contb_receipt_amt), data = ca) +
+  geom_histogram() +
+  ggtitle('Distribuição das contribuições por valor de contribuição usando escala de log')+
+  scale_y_log10()+
+  xlab('Valor')+
+  ylab('Contribuições')
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+summary(ca$contb_receipt_amt)
+```
+
+Contribuições negativas:
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+dim(subset(ca,ca$contb_receipt_amt<0))
+```
+
+```{r fig.width=10, fig.height=5, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contb_receipt_amt), data = subset(ca,ca$contb_receipt_amt<=0)) +
+  geom_histogram() +
+  ggtitle('Distribuição das contribuições negativas')+
+  xlab('Valor')+
+  ylab('Contribuições')
+```
+```{r fig.width=10, fig.height=5, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contb_receipt_amt), data = subset(ca,ca$contb_receipt_amt<=0)) +
+  geom_histogram() +
+  scale_y_log10()+
+  ggtitle('Distribuição das contribuições negativas escala de log')+
+  xlab('Valor')+
+  ylab('Contribuições')
+```
+
+
+Na distribuição por período, as contribuições se intensificaram no período de FEV/15 à DEZ/16, atingindo a maior quantidade de contribuições em OUT/16
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ca$contb_receipt_dt <- as.Date(parse_date_time2(as.character(ca$contb_receipt_dt), tz="", orders = c('dmy')),"%Y-%m-%d")
+```
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ca.ca_by_contb_receipt_dt <- tibble(ca, ca$contb_receipt_dt) %>% 
+  group_by(month = floor_date(ca$contb_receipt_dt, unit = 'month')) %>%
+  dplyr::summarize(total = sum(ca$contb_receipt_amt), 
+                   n = n())
+```
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=month, y= n), data = ca.ca_by_contb_receipt_dt)+
+  geom_line()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_date(NULL, date_labels = "%b %y", breaks = "1 month")+
+  ggtitle('Distribuição das contribuições por mês')+
+  xlab('Período')+
+  ylab('Contribuições')
+```
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=month, y= n), data = ca.ca_by_contb_receipt_dt)+
+  geom_line()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_date(NULL, date_labels = "%b %y", breaks = "1 month", limits = as.Date(c('2015-02-01', '2016-12-01')))+
+  ggtitle('Distribuição das contribuições no período de FEV/2015 à DEZ/2016')+
+  xlab('Período')+
+  ylab('Contribuições')
+```
+
+
+## Analise da variavel
+
+###Qual a estrutura do dataset?
+
+Existem 13043446 contribuições realizada com 18 informações, entre as principais estão (nome do candidato, nome do doador, cidade, profissão do doador, valor contribuído, data da contribuição)    
+
+Algumas observações:
+  A candidata Clinton, Hillary Rodham recebeu aproximadamente 53% das contribuições.
+  LOS ANGELES foi a cidade com maior número de contribuições.
+  PETIT, MICHAEL é a pessoa que realizou o maior número de contribuições.
+  Aproximadamente 20% das contribuições foram realizadas por RETIRED (APOSENTADOS).
+  A ocorrência de valores negativos nas contribuições.
+  O ápice de contribuições ocorreu no mês de OUT-16.
+
+  
+###Qual é/são as principais informações do dataset?
+
+As principais informações são nome do candidato(cand_nm) e valor da contribuição(contb_receipt_amt). É possível verificar se a quantidade de contribuições está relacionando com o valor de contribuição recebido.   
+
+###Quais outras informações você acha que irão te ajudar na sua investigação?
+
+Nome da cidade(contbr_city), nome do doador(contbr_nm), profissão do doador(contbr_occupation), para verificar a distribuição das contribuições nesses grupos específicos. 
+
+###Você criou alguma nova variável a partir das variáveis existentes no seu dataset?
+
+Não.
+
+###Outras informações da sua investigações, existe alguma distribuição incomum? Você realizou alguma operação de ajuste ou mudou a forma das informações? Se sim, por que você fez isso?
+
+Utilizei a escala de log nas contribuições do candidatos, pra visualizar melhor a distribuição das contribuições dos candidatos. Nas contribuições por candidatos também foram selecionados apenas os 5 com maior número de contribuições.  
+Também foram selecionadas as 20 cidades com maior número de doações, pois existem o registro de 2534 cidades, o que torna inviável a visualização. O mesmo ocorreu para visualizar as 5 pessoas que mais realizaram contribuições e as 20 profissões que mais contribuíram.
+Já no valor da contribuição além da escala de log, também foi utilizado um ajuste no eixo x para visualizar uma intervalo especifico, e a seleção no dataset para trazer apenas os valores com contribuições negativas.
+Na data de contribuição foi realizado uma ajuste para agrupar as datas por mês e um ajuste para visualizar um período especifico.
+
+
+
+##Analisando duas variáveis 
+
+Agora que descobrimos a distribuição das contribuições no dataset, podemos cruzar as informações, e verificar se existe correlações entre as tabelas.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ca_numeric <- subset(ca[,c(3,4,5,8,9,10)], !is.na(ca$contbr_employer))
+ca_numeric <- subset(ca_numeric, !is.na(ca_numeric$contbr_occupation))
+ca_numeric$cand_nm <- as.numeric(ca_numeric$cand_nm)
+ca_numeric$contbr_nm <- as.numeric(ca_numeric$contbr_nm)
+ca_numeric$contbr_city <- as.numeric(ca_numeric$contbr_city)
+ca_numeric$contbr_employer <- as.numeric(ca_numeric$contbr_employer)
+ca_numeric$contbr_occupation <- as.numeric(ca_numeric$contbr_occupation)
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cor(ca_numeric)
+```
+
+
+Como mostra os resultados, não existe nenhuma correlação forte, mas isso não impede de continuar a explorar o dataset e buscar algo interessante, por exemplo como no gráfico abaixo, podemos cruzar as informações de candidatos com informações sobre o valor da contribuição. Será que a quantidade de contribuições está diretamente ligada com o valor recebido pelo candidato?
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=cand_nm, y=contb/1000), data = ca.ca_by_cand_nm) +
+  geom_bar(stat = 'identity')+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Valor de contribuições($) realizada para os candidatos')+
+  xlab('Candidatos')+
+  ylab('Valor contribuições em Dólares/1000')
+```
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=cand_nm, y=contb/1000), data = ca.ca_by_cand_nm) +
+  geom_bar(stat = 'identity')+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_y_log10()+
+  ggtitle('Valor de contribuições($) realizada para os candidatos (Escala de log)')+
+  xlab('Candidatos')+
+  ylab('Valor contribuições em Dólares/1000')
+```
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=cand_nm, y= contb/1000), data = ca.ca_by_cand_nm %>% top_n(5, ca.ca_by_cand_nm$contb)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Valor de contribuições($) realizada para os candidatos (TOP 5)')+
+  xlab('Candidatos')+
+  ylab('Valor contribuições em Dólares/1000')
+```
+
+
+Para melhor visualizar a diferença entre a quantidade de contribuição e o valor recebido, transformei os valores em porcentagem, assim podemos visualizar a representação de cada um. Em vermelho a porcentagem que o candidato tem em relação aos valores das contribuições e em azul a quantidade.      
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+cand_nm_por <- ca.ca_by_cand_nm[,c(1,6,7)]
+teste<- melt(cand_nm_por)
+ggplot(aes(x=cand_nm, value, fill=variable), data= teste)+
+  geom_bar(stat='identity', position = 'dodge')+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Valor x quantidade de contribuição por candidato')+
+  xlab('Candidatos')+
+  ylab('Porcentagem')
+  
+```
+
+A candidata Clinton, Hillary Rodham possui aproximadamente 53% da quantidade de contribuições e recebeu aproximadamente 62% do valor contribuído. O candidato Sanders, Bernard por sua vez tem 31% da quantidade de contribuições, mas representa apenas 13% do valor contribuído. O candidato Carson, Benjamin S. aparecia entre os 5 com maiores números de contribuições, porém não aparece no top 5 dos que receberam mais em valor.
+
+Com base nessas informações fica a dúvida sobre a correlação entre o número de contribuições com o valor. Segue abaixo o resultado do teste.
+  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cor(ca.ca_by_cand_nm$contb, ca.ca_by_cand_nm$n, method = 'pearson')
+```
+  
+  
+O resultado mostra que existe um alto índice de correlação entre eles. O gráfico abaixo mostra essa correlação, para uma melhor analise, o eixo x e y estão em escala de log. 
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=contb, y=n), data = ca.ca_by_cand_nm)+
+  geom_point()+
+  scale_x_log10()+
+  scale_y_log10()+
+  ggtitle('Correlação Valor x Quantidade de contribuição por candidato')+
+  xlab('Valor')+
+  ylab('Quantidade')
+```
+
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=cand_nm, y= mean_contb_receipt_amt), data= ca.ca_by_cand_nm)+
+  geom_bar(stat='identity')+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Média de contribuição por candidato')+
+  xlab('Candidatos')+
+  ylab('média')
+  
+```
+
+
+A média mostrou um fato curioso, o candidato Gilmore, James S III, teve a maior média, porém ao analisar especificamente esse candidato, ele obteve apenas 3 contribuições, foi o candidato com menor contribuição, tanto em valores quanto em quantidade. 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+head(subset(ca, ca$cand_nm == 'Gilmore, James S III')[,c(3,4,5,8,9,10,11)])
+```
+
+
+A distribuição das contribuições negativas entre os candidatos também é algo interessante de ser visualizado:
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+groups_cand_nm_negative <- group_by(subset(ca, ca$contb_receipt_amt<=0), cand_nm)
+ca.ca_by_cand_nm_negative <- summarise(groups_cand_nm_negative,
+           total = sum(contb_receipt_amt),
+           n = n())
+
+p1 <- ggplot(aes(x=cand_nm, y=n), data = ca.ca_by_cand_nm_negative) +
+        geom_bar(stat = 'identity')+
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        ggtitle('Distribuição das contribuições negativas dos candidatos(quantidade)')+
+        xlab('Candidatos')+
+        ylab('Contribuições')
+        
+
+
+p2 <- ggplot(aes(x=cand_nm, y=total*-1), data = ca.ca_by_cand_nm_negative) +
+        geom_bar(stat = 'identity') +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        ggtitle('Distribuição das contribuições negativas dos candidatos(valor)')+
+        xlab('Candidatos')+
+        ylab('Contribuições')
+  
+grid.arrange(p1,p2,ncol = 1)        
+```
+
+
+Podemos também realizar as analisar a tabela de valor com as outras tabelas.
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contbr_city, y= total/10), data = ca.ca_by_contbr_city %>% top_n(20, ca.ca_by_contbr_city$n)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('As 20 cidades com mais contribuições($)')+
+  xlab('Cidades')+
+  ylab('contribuições/10')
+```
+
+
+Podemos verificar a correlação de valor e quantidade, mas agora com o foco na contribuição por cidade. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cor(ca.ca_by_contbr_city$total, ca.ca_by_contbr_city$n, method = 'pearson')
+```
+
+
+Existe um alto índice de correlação, um pouco melhor comparado a correlação do grupo de candidatos.
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=total, y=n), data = ca.ca_by_contbr_city)+
+  geom_point()+
+  scale_x_log10()+
+  scale_y_log10()+
+  ggtitle('Correlação Valor x Quantidade de contribuição por cidade')+
+  xlab('Valor')+
+  ylab('Quantidade')
+```
+
+
+A seguir os doadores que mais doaram($), e também correlação entre quantidade de contribuições e valor.
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contbr_nm, y= total), data = ca.ca_by_contbr_nm %>% top_n(5, ca.ca_by_contbr_nm$total)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Os que mais contribuíram ')+
+  xlab('Doador')+
+  ylab('contribuições')
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cor(ca.ca_by_contbr_nm$total, ca.ca_by_contbr_nm$n, method = 'pearson')
+```
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=total, y=n), data = ca.ca_by_contbr_nm)+
+  geom_point()+
+  ggtitle('Correlação Valor x Quantidade de contribuição por doadores')+
+  xlab('Valor')+
+  ylab('Quantidade')
+```
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=total, y=n), data = ca.ca_by_contbr_nm)+
+  geom_point()+
+  xlim(0,8000)+
+  ylim(0,200)+
+  ggtitle('Correlação Valor x Quantidade de contribuição por doadores')+
+  xlab('Valor')+
+  ylab('Quantidade')
+```
+
+
+Baixo índice de correlação entre quantidade de contribuições e valor. Vamos verificar o que ocorre com as profissões.
+
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=contbr_occupation, y= total/10), data = ca.ca_by_contbr_occupation %>% top_n(20, ca.ca_by_contbr_occupation$total)) +
+  geom_bar(stat = 'identity') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('As 20 profissões que mais contribuíram')+
+  xlab('Profissão')+
+  ylab('contribuições/10')
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cor(ca.ca_by_contbr_occupation$total, ca.ca_by_contbr_occupation$n, method = 'pearson')
+```
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=total, y=n), data = ca.ca_by_contbr_occupation)+
+  geom_point()+
+  ggtitle('Correlação Valor x Quantidade de contribuição por profissão')+
+  xlab('Valor')+
+  ylab('Quantidade')
+```
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=total, y=n), data = ca.ca_by_contbr_occupation)+
+  geom_point(alpha=1/10)+
+  scale_x_log10()+
+  scale_y_log10()+
+  ggtitle('Correlação Valor x Quantidade de contribuição por profissão (Escala de log)')+
+  xlab('Valor')+
+  ylab('Quantidade')
+```
+
+Apresenta um alto indicie de correlação, no gráfico acima o eixo x e y estão em escala de log, e usado alpha = 1/10.
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=month, y= total/10), data = ca.ca_by_contb_receipt_dt)+
+  geom_line()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_date(NULL, date_labels = "%b %y", breaks = "1 month")+
+  ggtitle('Distribuição das contribuições($) por mês')+
+  xlab('Período')+
+  ylab('Contribuições/10')
+```
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=month, y= total/10), data = ca.ca_by_contb_receipt_dt)+
+  geom_line()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_date(NULL, date_labels = "%b %y", breaks = "1 month", limits = as.Date(c('2015-02-01', '2016-12-01')))+
+  ggtitle('Distribuição das contribuições($) no período de FEV/2015 à DEZ/2016')+
+  xlab('Período')+
+  ylab('Contribuições/10')
+```
+
+
+Ao contrário do gráfico por quantidade que mostrava o pico de contribuição no mês de out/10, esse gráfico nos mostra que o pico de contribuição em valor, ocorre no set/16.
+
+
+##Analise duas variáveis
+
+
+###Fale sobre as relações que você observou nessa parte da investigação. Como a informação de interesse variam com os outros recursos no dataset?
+
+Devido ao dataset ser constituído de muitas variáveis que não possuem uma boa correlação entre elas, separei-as em grupos e analisei a relação entre a quantidade de contribuições e o valor arrecadado, no caso do grupo dos candidatos, mostra o gráfico linear na relação quantidade vs valor.
+
+###Você observou alguma relação de interesse nas outras informações (não na informação principal)?
+
+Na maioria dos grupos testados a correlação entre quantidade x valor, apresentou resultado satisfatórios a maior acima de 0.90, exceto no grupo de doadores, onde apresentou a pior correlação, aproximadamente 0.20 
+
+###Qual o relacionamento mais forte que você encontrou?
+
+O relacionamento mais forte foi de quantidade x valor do grupo cidades, aproximadamente 0.96.
+
+
+##Gráficos multivariaveis 
+
+
+Utilizando multivariaveis, podemos fazer uma abordagem mais especifica, como por exemplo, descobrir a distribuição das contribuições realizadas por aposentado e desempregados, a distribuição de votos dos candidatos nas cidades com maior contribuição ou uma melhor analise das contribuições com valor negativo.
+ 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ca.ca_by_occupation_subset <- subset(ca, ca$contbr_occupation == 'RETIRED' | ca$contbr_occupation=='NOT EMPLOYED') 
+
+groups_contr_occupation <- group_by(ca.ca_by_occupation_subset, cand_nm, contbr_occupation)
+ca.ca_by_occupation_subset <- summarise(groups_contr_occupation,
+           total = sum(contb_receipt_amt))
+```
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=cand_nm, y=total, group=contbr_occupation, color=contbr_occupation), data= ca.ca_by_occupation_subset)+
+  geom_line(size=1)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Distribuição Valor x Candidatos x Contribuições realizadas por aposentados e desempregados')+
+  xlab('Candidatos')+
+  ylab('Contribuições')
+```
+
+
+A candidata Clinton, Hillary Rodham recebeu o maior valor de contribuições dos aposentados, e o candidato Sanders, Bernard nos contribuições realizada por desempregados.
+A distribuição das contribuições dos 6 candidatos com maior valor recebido nas 6 cidades com maior contribuição.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ca.cand_nm_city <- subset(ca, cand_nm=='Clinton, Hillary Rodham' | cand_nm=='Sanders, Bernard' | cand_nm=='Trump, Donald J.' | cand_nm=="Cruz, Rafael Edward 'Ted'" | cand_nm=='Carson, Benjamin S.' | cand_nm=='Rubio, Marco') 
+ca.cand_nm_city <- subset(ca.cand_nm_city, contbr_city=='LOS ANGELES' | contbr_city=='SAN FRANCISCO' | contbr_city=='SAN DIEGO' | contbr_city=="OAKLAND" | contbr_city=='SAN JOSE' | contbr_city=='SACRAMENTO')
+
+groups_cand_city <- group_by(ca.cand_nm_city, cand_nm, contbr_city)
+ca.ca_cand_nm_city <- summarise(groups_cand_city,
+           total = sum(contb_receipt_amt),
+           n = n())
+
+```
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=contbr_city, y=total, group=cand_nm, color=cand_nm), data=ca.ca_cand_nm_city)+
+  geom_line(size=1)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_color_brewer(palette = 'Dark2')+
+  ggtitle('Distribuição 6 candidatos x 6 cidades maior contribuição ($)')+
+  xlab('Cidades')+
+  ylab('Contribuições')
+  
+```
+
+
+Uma ideia para visualizar o gráfico acima é usando jitter:
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=contbr_city, y=total, group=cand_nm, color=cand_nm), data=ca.ca_cand_nm_city)+
+  geom_jitter(aes(color = cand_nm, fill = cand_nm, size=1))+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_color_brewer(palette = 'Dark2')+
+  scale_y_log10()+
+  ggtitle('Distribuição 6 candidatos x 6 cidades maior contribuição ($) (JITTER)')+
+  xlab('Cidades')+
+  ylab('Contribuições')
+  
+```
+
+
+Aproveitando os 6 candidatos e as 6 cidades, vamos verificar a distribuições das contribuições dos aposentados e desempregados.
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ca.cand_nm_city <- subset(ca.cand_nm_city, contbr_occupation == 'RETIRED' | contbr_occupation=='NOT EMPLOYED')
+
+groups_cand_city_occupation <- group_by(ca.cand_nm_city, cand_nm, contbr_city, contbr_occupation)
+
+ca.ca_cand_nm_city_occupation <- summarise(groups_cand_city_occupation,
+           total = sum(contb_receipt_amt),
+           n = n())
+
+ggplot(aes(x=cand_nm, y=total, group=contbr_occupation, color=contbr_occupation), data=ca.ca_cand_nm_city_occupation)+
+  geom_line()+
+  facet_wrap(~contbr_city)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Distribuição das contribuição dos aposentados e desempregados x 6 candidatos x 6 cidades')+
+  xlab('Candidatos')+
+  ylab('Contribuições')
+```
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = cand_nm, y =total), data = ca.ca_cand_nm_city_occupation) + 
+  facet_wrap(~contbr_occupation)+
+  geom_jitter(aes(color = contbr_city, fill = contbr_city, size=1))+
+  scale_color_brewer(type = 'qual')+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Distribuição das contribuição dos aposentados e desempregados x 6 candidatos x 6 cidades')+
+  xlab('Candidatos')+
+  ylab('Contribuições')
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ca.sep <- subset(ca, ca$contb_receipt_dt>= as.Date('2016-09-01') & ca$contb_receipt_dt<as.Date('2016-10-01'))
+ca.cand_nm_sep <- subset(ca.sep, cand_nm=='Clinton, Hillary Rodham' | cand_nm=='Sanders, Bernard' | cand_nm=='Trump, Donald J.' | cand_nm=="Cruz, Rafael Edward 'Ted'" )
+groups_cand_nm_sep <- group_by(ca.cand_nm_sep, cand_nm, contb_receipt_dt)
+
+ca.ca_cand_nm_sep <- summarise(groups_cand_nm_sep,
+           total = sum(contb_receipt_amt),
+           n = n())
+
+```
+
+
+Podemos analisar a corrida das contribuições entre os 3 candidatos com maiores contribuições no mês de set/16, que como já verificamos é o mês com maior número de contribuição em dinheiro.
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=contb_receipt_dt, y=total, group=cand_nm, color=cand_nm), data=ca.ca_cand_nm_sep)+
+  geom_line(size=1)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_color_brewer(palette = 'Dark2')+
+  scale_x_date(NULL, breaks = "1 day", limits = as.Date(c('2016-09-01', '2016-09-30')))+
+  ggtitle('Distribuição das contribuição mês (SET/16)  x 3 candidatos com maior arrecadação ($)')+
+  ylab('Contribuições')
+```
+
+
+Podemos usar a mesma técnica acima para exploramos as contribuições negativas, em especifico o candidato Rubio, Marco que recebeu o maior número de contribuições negativas.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ca.rubio <- subset(ca, cand_nm=='Rubio, Marco')
+groups_cand_nm_rubio <- group_by(ca.rubio, cand_nm, contb_receipt_dt)
+
+ca.rubio <- summarise(groups_cand_nm_rubio,
+           total = sum(contb_receipt_amt),
+           n = n())
+
+summary(ca.rubio)
+```
+
+```{r}
+ca.ca_rubio <- tibble(ca.rubio, ca.rubio$contb_receipt_dt) %>% 
+  group_by(month = floor_date(ca.rubio$contb_receipt_dt, unit = 'month')) %>%
+  dplyr::summarize(total = sum(ca.rubio$total), 
+                   n = n())
+```
+
+
+Primeiro vamos descobrir quando as doações negativas ocorreram.
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=month, y= total/10), data = ca.ca_rubio)+
+  geom_line()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_date(NULL, date_labels = "%b %y", breaks = "1 month")+
+  ggtitle('Distribuição das contribuições do Rubio, Marco')+
+  xlab('Periodo')+
+  ylab('Contribuições/10')
+```
+
+
+Descobrimos que foi no mês de maio, vamos visualizar esse mês para ver a movimentação nos dias.
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ca.rubio_desc <- subset(ca.rubio, ca.rubio$contb_receipt_dt>= as.Date('2016-04-01') & ca.rubio$contb_receipt_dt<as.Date('2016-06-01'))
+
+ggplot(aes(x=contb_receipt_dt, y=total/10), data=ca.rubio_desc)+
+  geom_line(size=1)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_color_brewer(palette = 'Dark2')+
+  scale_x_date(NULL, breaks = "1 day", limits = as.Date(c('2016-04-01', '2016-06-01')))+
+  ggtitle('Distribuição das contribuições do Rubio, Marco (Maio/16)')+
+  xlab('Periodo')+
+  ylab('Contribuições/10')
+```
+
+
+No dia 13/05/16 foram realizado o pedido de reembolso.
+
+
+```{r}
+ca.rubio_desc_maio <- subset(ca, ca$contb_receipt_dt== as.Date('2016-05-13') & ca$cand_nm=='Rubio, Marco')
+summary(ca.rubio_desc_maio)
+```
+
+
+A distribuição dos reembolsos realizado no dia 13/05/16, utilizado jitter e alpha.
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=cand_nm, y=contb_receipt_amt), data=ca.rubio_desc_maio)+
+  geom_jitter(alpha=2/10)+
+  ggtitle('Distribuição do reembolso das contribuições  do Rubio, Marco (13/Maio/16)')+
+  xlab('Candidato')+
+  ylab('Contribuições')
+```
+
+
+
+##Analise multi variáveis
+
+###Fale sobre alguns dos relacionamentos que você observou nesta parte da investigação. Havia recursos que se fortaleciam em termos de olhar para seu (s) recurso (s) de interesse?
+
+A distribuição das contribuições dos aposentados e desempregados, onde a candidata Clinton, Hillary Rodham recebeu o maior valor de contribuições dos aposentados, e o candidato Sanders, Bernard nos contribuições realizada por desempregados.
+Também a analise feitas das contribuições negativas, onde foi possível acompanhar as contribuições do candidato Rubio, Marco e descobrir o período e a quantidade de reembolso.
+
+###Houve interações interessantes ou surpreendentes entre os recursos?
+Candidatos, cidade, valor, e ocupação mostraram informações bem relevantes.
+
+
+##Gráficos finais e resumo
+
+
+###Gráfico 1
+
+```{r fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x=cand_nm), data = ca) +
+  geom_histogram(stat = 'count') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_y_log10(breaks = c(10, 1000, 100000))+
+  ggtitle('Distribuição das contribuições dos candidatos (Escala de log)')+
+  xlab('Candidatos')+
+  ylab('Contribuições')
+```
+
+
+###Descrição 1
+Para melhor compreender a distribuição das contribuições dos candidatos, o gráfico anterior mas usando escala de log, é possível perceber a disparidade entre as contribuições.
+
+
+###Gráfico 2
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+cand_nm_por <- ca.ca_by_cand_nm[,c(1,6,7)]
+teste<- melt(cand_nm_por)
+ggplot(aes(x=cand_nm, value, fill=variable), data= teste)+
+  geom_bar(stat='identity', position = 'dodge')+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle('Valor x quantidade de contribuição por candidato')+
+  xlab('Candidatos')+
+  ylab('Porcentagem')
+  
+```
+
+###Descrição 2
+
+
+A diferença entre a quantidade de contribuição e o valor recebido, transformei os valores em porcentagem, assim podemos visualizar a representação de cada um. Em vermelho a porcentagem que o candidato tem em relação aos valores das contribuições e em azul a quantidade.    
+
+
+###Gráfico 3
+
+
+```{r fig.width=10, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=month, y= total/10), data = ca.ca_rubio)+
+  geom_line()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_date(NULL, date_labels = "%b %y", breaks = "1 month")+
+  ggtitle('Distribuição das contribuições do Rubio, Marco')+
+  xlab('Periodo')+
+  ylab('Contribuições/10')
+```
+
+
+###Descrição 3
+A Movimentação das contribuições do candidato Rubio, Marco, o candidato que mais recebeu contribuições($) negativas.
+
+##Reflexão
+
+O dataset possui aproximadamente 1300000 contribuições para candidatos a presidência, as contribuições foram realizadas no estado da Califórnia, o intervalo das contribuições é de nov/13 à dez/16, o dataset também possui informação sobre a ocupação do doador, algo que foi explorado durante a investigação, com foco nos doadores desempregados e aposentados. A presença de contribuições negativas também foi alvo das investigações do data set, especificamente o candidato Rubio, Marco que teve maior número de pedidos de reembolso.
+Um ponto de dificuldade do dataset é por possuir muitas variáveis categorias, tive um pouco de dificuldade para converter os valores em números e realizar o teste de correlação, que por sua vez, mostrou um resultado bem insatisfatório.
